@@ -2,6 +2,9 @@
 #include "LowPassFilter.h"
 #include "HighPassFilter.h"
 
+#define BitOffset8(value, offset) (uint8_t(value) << (offset))
+#define BitOffset16(value, offset) (uint16_t(value) << (offset))
+
 class NESAPU
 {
 private:
@@ -12,9 +15,6 @@ private:
 	static double pulseLookup[31], tndLookup[16][16][128];
 	static const bool pulseSequence[4][8];
 	static const uint8_t triangleSequence[32];
-	static const uint8_t lengthTable[32];
-	static const int noisePeriodTable[16];
-	static const int dmcRates[16];
 	static const int frameSequencer[5];
 	static const bool quarterFrameSequence[2][5];
 	static const bool halfFrameSequence[2][5];
@@ -202,6 +202,12 @@ public:
 
 	enum class SampleFormat { UINT8, INT16, FLOAT32 };
 
+	enum class Duty { _12_5 = 0, _25, _50, _75 };
+
+	static const uint8_t lengthTable[32];
+	static const int noisePeriodTable[16];
+	static const int dmcRates[16];
+
 	static uint8_t GetBits(uint8_t value, int bitOffset, unsigned bitCount);
 
 	NESAPU(uint8_t * memory0x0000 = nullptr);
@@ -217,5 +223,28 @@ public:
 #ifdef BASS_H
 	static DWORD CALLBACK BASSStreamProc(HSTREAM handle, void *buffer, DWORD length, void *user);
 #endif //BASS_H
+
+	static uint16_t GetDMCSampleAddress(uint8_t address);
+	static uint16_t GetDMCSampleLength(uint8_t length);
+
+	void SetChannelsEnabled(bool enablePulse1, bool enablePulse2, bool enableTriangle, bool enableNoise, bool enableDMC);
+	void SetPulse1StateConstVol(Duty duty, bool enableNoteLength, uint8_t volume_0_15);
+	void SetPulse1StateEnvelope(Duty duty, bool loopEnvelope, uint8_t envelopePeriod_1_16);
+	void SetPulse1Sweep(bool enable, uint8_t period_1_8, bool goUp, uint8_t shiftCount_1_8);
+	void SetPulse1Note(uint16_t timer_1_2048, uint8_t lengthIndex);
+	void SetPulse2StateConstVol(Duty duty, bool enableNoteLength, uint8_t volume_0_15);
+	void SetPulse2StateEnvelope(Duty duty, bool loopEnvelope, uint8_t envelopePeriod_1_16);
+	void SetPulse2Sweep(bool enable, uint8_t period_1_8, bool goUp, uint8_t shiftCount_1_8);
+	void SetPulse2Note(uint16_t timer_1_2048, uint8_t lengthIndex);
+	void SetTriangleLinearCounter(bool enable, uint8_t reloadValue_0_127);
+	void SetTriangleNote(uint16_t timer_1_2048, uint8_t lengthIndex);
+	void SetNoiseStateConstVol(bool enableNoteLength, uint8_t volume_0_15);
+	void SetNoiseStateEnvelope(bool loopEnvelope, uint8_t envelopePeriod_1_16);
+	void SetNoiseTone(bool loopedNoise, uint8_t noisePeriodIndex);
+	void SetNoiseNoteLength(uint8_t lengthIndex);
+	void SetDMCNote(bool loopSample, uint8_t freqIndex);
+	void SetDMCOutput(uint8_t value_0_127);
+	void SetDMCSampleAddress(uint8_t address);
+	void SetDMCSampleLength(uint8_t length);
 };
 

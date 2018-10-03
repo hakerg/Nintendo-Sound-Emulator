@@ -197,7 +197,7 @@ void NESAPU::Write(uint16_t address, uint8_t value)
 						{
 							pulse1LengthCounter = lengthTable[GetBits(value, 3, 5)];
 						}
-						Pulse1Timer = Pulse1Timer & 0x00FF | (uint16_t(value & 0x7) << 8);
+						Pulse1Timer = Pulse1Timer & 0x00FF | BitOffset16(value & 0x7, 8);
 						pulse1SequencerPosition = 0;
 						pulse1EnvelopeStartFlag = true;
 					}
@@ -235,7 +235,7 @@ void NESAPU::Write(uint16_t address, uint8_t value)
 						{
 							pulse2LengthCounter = lengthTable[GetBits(value, 3, 5)];
 						}
-						Pulse2Timer = Pulse2Timer & 0x00FF | (uint16_t(value & 0x7) << 8);
+						Pulse2Timer = Pulse2Timer & 0x00FF | BitOffset16(value & 0x7, 8);
 						pulse2SequencerPosition = 0;
 						pulse2EnvelopeStartFlag = true;
 					}
@@ -267,7 +267,7 @@ void NESAPU::Write(uint16_t address, uint8_t value)
 						{
 							triangleLengthCounter = lengthTable[GetBits(value, 3, 5)];
 						}
-						TriangleTimer = TriangleTimer & 0x00FF | (uint16_t(value & 0x7) << 8);
+						TriangleTimer = TriangleTimer & 0x00FF | BitOffset16(value & 0x7, 8);
 						triangleLinearCounterReloadFlag = true;
 					}
 				}
@@ -322,11 +322,11 @@ void NESAPU::Write(uint16_t address, uint8_t value)
 			{
 				if (address == 0x4012)
 				{
-					DMCSampleAdress = 0xC000 + int(value) * 64;
+					DMCSampleAdress = GetDMCSampleAddress(value);
 				}
 				else
 				{
-					DMCSampleLength = int(value) * 16 + 1;
+					DMCSampleLength = GetDMCSampleLength(value);
 				}
 			}
 		}
@@ -668,7 +668,108 @@ DWORD NESAPU::BASSStreamProc(HSTREAM handle, void * buffer, DWORD length, void *
 	nesapu->GetOutput((char*)buffer, length, info.freq, format, info.chans);
 	return length;
 }
+uint16_t NESAPU::GetDMCSampleAddress(uint8_t address)
+{
+	return 0xC000 + uint16_t(address) * 64;
+}
+uint16_t NESAPU::GetDMCSampleLength(uint8_t length)
+{
+	return uint16_t(length) * 16 + 1;
+}
 #endif //BASS_H
+
+void NESAPU::SetChannelsEnabled(bool enablePulse1, bool enablePulse2, bool enableTriangle, bool enableNoise, bool enableDMC)
+{
+	Write(0x4015, uint8_t(enablePulse1) | BitOffset8(enablePulse2, 1) | BitOffset8(enableTriangle, 2) | BitOffset8(enableNoise, 3) | BitOffset8(enableDMC, 4));
+}
+void NESAPU::SetPulse1StateConstVol(Duty duty, bool enableNoteLength, uint8_t volume_0_15)
+{
+	Write(0x4000, BitOffset8(duty, 6) | BitOffset8(!enableNoteLength, 5) | 0x10 | volume_0_15);
+}
+void NESAPU::SetPulse1StateEnvelope(Duty duty, bool loopEnvelope, uint8_t envelopePeriod_1_16)
+{
+	Write(0x4000, BitOffset8(duty, 6) | BitOffset8(loopEnvelope, 5) | (envelopePeriod_1_16 - 1));
+}
+void NESAPU::SetPulse1Sweep(bool enable, uint8_t period_1_8, bool goUp, uint8_t shiftCount_1_8)
+{
+	Write(0x4001, BitOffset8(enable, 7) | BitOffset8(period_1_8 - 1, 4) | BitOffset8(goUp, 3) | (shiftCount_1_8 - 1));
+}
+void NESAPU::SetPulse1Note(uint16_t timer_1_2048, uint8_t lengthIndex)
+{
+	timer_1_2048--;
+	Write(0x4002, (uint8_t)timer_1_2048);
+	Write(0x4003, BitOffset8(lengthIndex, 3) | (timer_1_2048 >> 8));
+}
+void NESAPU::SetPulse2StateConstVol(Duty duty, bool enableNoteLength, uint8_t volume_0_15)
+{
+	Write(0x4004, BitOffset8(duty, 6) | BitOffset8(!enableNoteLength, 5) | 0x10 | volume_0_15);
+}
+void NESAPU::SetPulse2StateEnvelope(Duty duty, bool loopEnvelope, uint8_t envelopePeriod_1_16)
+{
+	Write(0x4004, BitOffset8(duty, 6) | BitOffset8(loopEnvelope, 5) | (envelopePeriod_1_16 - 1));
+}
+void NESAPU::SetPulse2Sweep(bool enable, uint8_t period_1_8, bool goUp, uint8_t shiftCount_1_8)
+{
+	Write(0x4005, BitOffset8(enable, 7) | BitOffset8(period_1_8 - 1, 4) | BitOffset8(goUp, 3) | (shiftCount_1_8 - 1));
+}
+void NESAPU::SetPulse2Note(uint16_t timer_1_2048, uint8_t lengthIndex)
+{
+	timer_1_2048--;
+	Write(0x4006, (uint8_t)timer_1_2048);
+	Write(0x4007, BitOffset8(lengthIndex, 3) | (timer_1_2048 >> 8));
+}
+
+void NESAPU::SetTriangleLinearCounter(bool enable, uint8_t reloadValue_0_127)
+{
+	Write(0x4008, BitOffset8(enable, 7) | reloadValue_0_127);
+}
+
+void NESAPU::SetTriangleNote(uint16_t timer_1_2048, uint8_t lengthIndex)
+{
+	timer_1_2048--;
+	Write(0x400A, (uint8_t)timer_1_2048);
+	Write(0x400B, BitOffset8(lengthIndex, 3) | (timer_1_2048 >> 8));
+}
+
+void NESAPU::SetNoiseStateConstVol(bool enableNoteLength, uint8_t volume_0_15)
+{
+	Write(0x400C, BitOffset8(!enableNoteLength, 5) | 0x10 | volume_0_15);
+}
+
+void NESAPU::SetNoiseStateEnvelope(bool loopEnvelope, uint8_t envelopePeriod_1_16)
+{
+	Write(0x400C, BitOffset8(loopEnvelope, 5) | (envelopePeriod_1_16 - 1));
+}
+
+void NESAPU::SetNoiseTone(bool loopedNoise, uint8_t noisePeriodIndex)
+{
+	Write(0x400E, BitOffset8(loopedNoise, 7) | noisePeriodIndex);
+}
+
+void NESAPU::SetNoiseNoteLength(uint8_t lengthIndex)
+{
+	Write(0x400F, BitOffset8(lengthIndex, 3));
+}
+
+void NESAPU::SetDMCNote(bool loopSample, uint8_t freqIndex)
+{
+	Write(0x4010, BitOffset8(loopSample, 6) | freqIndex);
+}
+
+void NESAPU::SetDMCOutput(uint8_t value_0_127)
+{
+	Write(0x4011, value_0_127);
+}
+
+void NESAPU::SetDMCSampleAddress(uint8_t address)
+{
+	Write(0x4012, address);
+}
+
+void NESAPU::SetDMCSampleLength(uint8_t length)
+{
+	Write(0x4013, length);
+}
 
 void NESAPU::GetOutput(char * out, unsigned long bytes, double sampleRate, SampleFormat format, unsigned audioChans)
 {
